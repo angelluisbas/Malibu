@@ -11,14 +11,19 @@ public class PlayerMovement : MonoBehaviour
     public float fuerzaEmpujeParedX = 8f; 
     public int saltosParedMaximos = 3; 
 
+    [Header("Mecánicas de Cable")]
+    public float velocidadCable = 15f; 
+
     private Rigidbody rb;
     
     // Variables de estado
     private bool enElSuelo = false;
     private bool puedeDobleSalto = false;
     private bool tocandoPared = false;
+    private bool enCable = false; // NUEVO: Estado del cable
     private int saltosParedRestantes;
     private float direccionMuroX; 
+    private Vector3 ejeCable; // Para conocer la inclinación del cable
 
     // Temporizador para evitar que el Input cancele la fuerza del Wall Jump
     private float tiempoBloqueoControl = 0f;
@@ -31,19 +36,34 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        // 1. Reducimos el temporizador si estamos bloqueados
+        // 1. Lógica del Cable (Tiene prioridad absoluta si estamos sobre uno)
+        if (enCable)
+        {
+            MoverEnCable();
+
+            // Permitir saltar para soltarse del cable
+            if (Input.GetButtonDown("Jump"))
+            {
+                SalirDelCable();
+                RealizarSalto(fuerzaSalto);
+                puedeDobleSalto = true; // Damos la opción de doble salto en el aire
+            }
+            return; // Detenemos la ejecución del Update aquí para ignorar el resto del movimiento
+        }
+
+        // 2. Reducimos el temporizador si estamos bloqueados
         if (tiempoBloqueoControl > 0)
         {
             tiempoBloqueoControl -= Time.deltaTime;
         }
         else
         {
-            // 2. Solo aplicamos el movimiento manual si NO estamos bloqueados por un rebote
+            // 3. Solo aplicamos el movimiento manual normal si NO estamos bloqueados
             float movimientoX = Input.GetAxis("Horizontal");
             rb.linearVelocity = new Vector3(movimientoX * velocidad, rb.linearVelocity.y, 0);
         }
 
-        // 3. Lógica de Saltos
+        // 4. Lógica de Saltos (Suelo, Pared, Doble Salto)
         if (Input.GetButtonDown("Jump")) 
         {
             if (enElSuelo)
@@ -62,7 +82,7 @@ public class PlayerMovement : MonoBehaviour
                 saltosParedRestantes--;
                 puedeDobleSalto = true; 
                 
-                // Bloqueamos el control direccional por 0.25 segundos para que el gato sea empujado
+                // Bloqueamos el control direccional por 0.25 segundos
                 tiempoBloqueoControl = 0.25f; 
             }
             else if (puedeDobleSalto)
@@ -73,20 +93,39 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    // NUEVO: Movimiento adaptado al eje del cable
+    void MoverEnCable()
+    {
+        float movimientoX = Input.GetAxis("Horizontal");
+        Vector3 direccionMovimiento = ejeCable.normalized;
+
+        // Aseguramos que presionar izquierda/derecha mueva al personaje correctamente por el cable
+        if (movimientoX < 0 && direccionMovimiento.x > 0) direccionMovimiento = -direccionMovimiento;
+        else if (movimientoX > 0 && direccionMovimiento.x < 0) direccionMovimiento = -direccionMovimiento;
+
+        // Aplicamos la velocidad sin usar gravedad
+        rb.linearVelocity = direccionMovimiento * (Mathf.Abs(movimientoX) * velocidadCable);
+    }
+
     void RealizarSalto(float fuerza)
     {
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0, 0);
         rb.AddForce(Vector3.up * fuerza, ForceMode.Impulse);
     }
 
-    // Para evitar falsos negativos, reiniciamos los estados al inicio del cálculo de físicas
+    // NUEVO: Limpia el estado cuando el gato abandona el cable
+    void SalirDelCable()
+    {
+        enCable = false;
+        rb.useGravity = true; // Devolvemos la gravedad a la normalidad
+    }
+
     void FixedUpdate()
     {
         enElSuelo = false;
         tocandoPared = false;
     }
 
-    // Y dejamos que los contactos reales nos confirmen el estado
     void OnCollisionStay(Collision collision)
     {
         foreach (ContactPoint contacto in collision.contacts)
@@ -102,6 +141,29 @@ public class PlayerMovement : MonoBehaviour
                 tocandoPared = true;
                 direccionMuroX = contacto.normal.x; 
             }
+        }
+    }
+
+    // NUEVO: Detectar si el gato agarra un cable
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Cable") && !enCable)
+        {
+            enCable = true;
+            rb.useGravity = false; // El gato deja de caer
+            rb.linearVelocity = Vector3.zero; // Frenamos la inercia
+
+            // Usamos el eje X local del objeto como su dirección (Ideal si escalas un cubo en X)
+            ejeCable = other.transform.right;
+        }
+    }
+
+    // NUEVO: Detectar si el gato llega al final del cable y se cae
+    void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Cable") && enCable)
+        {
+            SalirDelCable();
         }
     }
 }
