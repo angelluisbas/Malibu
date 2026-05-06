@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
+    public Animator catAnimator;
     [Header("Configuración de Movimiento")]
     public float velocidad = 10f; 
     public float fuerzaSalto = 7f; 
@@ -20,22 +21,64 @@ public class PlayerMovement : MonoBehaviour
     private bool enElSuelo = false;
     private bool puedeDobleSalto = false;
     private bool tocandoPared = false;
-    private bool enCable = false; // NUEVO: Estado del cable
+    private bool enCable = false;
     private int saltosParedRestantes;
     private float direccionMuroX; 
-    private Vector3 ejeCable; // Para conocer la inclinación del cable
+    private Vector3 ejeCable;
 
     // Temporizador para evitar que el Input cancele la fuerza del Wall Jump
     private float tiempoBloqueoControl = 0f;
+    
+    // Variables para guardar la posición original del modelo
+    private Vector3 posicionOriginalDerecha;
+    private Vector3 posicionIzquierda;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
         saltosParedRestantes = saltosParedMaximos;
+        
+        // Guardamos la posición original (mirando a la derecha)
+        if (catAnimator != null)
+        {
+            posicionOriginalDerecha = catAnimator.transform.localPosition;
+            
+            // Calculamos la posición para cuando mira a la izquierda
+            // Invertimos el desplazamiento en X para compensar la rotación
+            posicionIzquierda = new Vector3(-posicionOriginalDerecha.x, 
+                                            posicionOriginalDerecha.y, 
+                                            posicionOriginalDerecha.z);
+        }
     }
 
     void Update()
     {
+        // Usamos GetAxisRaw para que el valor sea EXACTAMENTE 0 al instante de soltar la tecla
+        float inputHorizontal = Input.GetAxisRaw("Horizontal");
+
+        // --- LÓGICA DE ANIMACIÓN Y ROTACIÓN DEL GATO ---
+        if (catAnimator != null)
+        {
+            // Como usamos GetAxisRaw, podemos ser exactos. Si es distinto de 0, camina.
+            bool isMoving = inputHorizontal != 0;
+            catAnimator.SetBool("isWalking", isMoving);
+
+            // VOLTEAR EL MODELO 3D Y AJUSTAR POSICIÓN
+            if (inputHorizontal > 0)
+            {
+                // Derecha: Giramos 90 grados y usamos posición original
+                catAnimator.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+                catAnimator.transform.localPosition = posicionOriginalDerecha;
+            }
+            else if (inputHorizontal < 0)
+            {
+                // Izquierda: Giramos -90 grados y usamos posición compensada
+                catAnimator.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+                catAnimator.transform.localPosition = posicionIzquierda;
+            }
+        }
+        // -----------------------------------------------
+
         // 1. Lógica del Cable (Tiene prioridad absoluta si estamos sobre uno)
         if (enCable)
         {
@@ -46,9 +89,9 @@ public class PlayerMovement : MonoBehaviour
             {
                 SalirDelCable();
                 RealizarSalto(fuerzaSalto);
-                puedeDobleSalto = true; // Damos la opción de doble salto en el aire
+                puedeDobleSalto = true;
             }
-            return; // Detenemos la ejecución del Update aquí para ignorar el resto del movimiento
+            return;
         }
 
         // 2. Reducimos el temporizador si estamos bloqueados
@@ -59,8 +102,7 @@ public class PlayerMovement : MonoBehaviour
         else
         {
             // 3. Solo aplicamos el movimiento manual normal si NO estamos bloqueados
-            float movimientoX = Input.GetAxis("Horizontal");
-            rb.linearVelocity = new Vector3(movimientoX * velocidad, rb.linearVelocity.y, 0);
+            rb.linearVelocity = new Vector3(inputHorizontal * velocidad, rb.linearVelocity.y, 0);
         }
 
         // 4. Lógica de Saltos (Suelo, Pared, Doble Salto)
@@ -76,14 +118,28 @@ public class PlayerMovement : MonoBehaviour
                 // SALTO ENTRE PAREDES (Wall Jump)
                 Vector3 direccionRebote = new Vector3(direccionMuroX * fuerzaEmpujeParedX, fuerzaSaltoParedY, 0);
                 
-                rb.linearVelocity = Vector3.zero; // Limpiamos inercia
+                rb.linearVelocity = Vector3.zero;
                 rb.AddForce(direccionRebote, ForceMode.Impulse);
                 
                 saltosParedRestantes--;
                 puedeDobleSalto = true; 
                 
                 // Bloqueamos el control direccional por 0.25 segundos
-                tiempoBloqueoControl = 0.25f; 
+                tiempoBloqueoControl = 0.25f;
+                
+                // Voltear automáticamente al rebotar en pared
+                if (direccionMuroX > 0)
+                {
+                    // Pared derecha → mirar izquierda
+                    catAnimator.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+                    catAnimator.transform.localPosition = posicionIzquierda;
+                }
+                else
+                {
+                    // Pared izquierda → mirar derecha
+                    catAnimator.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+                    catAnimator.transform.localPosition = posicionOriginalDerecha;
+                }
             }
             else if (puedeDobleSalto)
             {
@@ -105,6 +161,21 @@ public class PlayerMovement : MonoBehaviour
 
         // Aplicamos la velocidad sin usar gravedad
         rb.linearVelocity = direccionMovimiento * (Mathf.Abs(movimientoX) * velocidadCable);
+        
+        // Volteo en el cable
+        if (catAnimator != null)
+        {
+            if (movimientoX > 0)
+            {
+                catAnimator.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+                catAnimator.transform.localPosition = posicionOriginalDerecha;
+            }
+            else if (movimientoX < 0)
+            {
+                catAnimator.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+                catAnimator.transform.localPosition = posicionIzquierda;
+            }
+        }
     }
 
     void RealizarSalto(float fuerza)
@@ -117,7 +188,7 @@ public class PlayerMovement : MonoBehaviour
     void SalirDelCable()
     {
         enCable = false;
-        rb.useGravity = true; // Devolvemos la gravedad a la normalidad
+        rb.useGravity = true;
     }
 
     void FixedUpdate()
@@ -150,10 +221,8 @@ public class PlayerMovement : MonoBehaviour
         if (other.CompareTag("Cable") && !enCable)
         {
             enCable = true;
-            rb.useGravity = false; // El gato deja de caer
-            rb.linearVelocity = Vector3.zero; // Frenamos la inercia
-
-            // Usamos el eje X local del objeto como su dirección (Ideal si escalas un cubo en X)
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
             ejeCable = other.transform.right;
         }
     }
