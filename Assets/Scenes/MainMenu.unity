@@ -1614,6 +1614,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   catAnimator: {fileID: 0}
+  audioSource: {fileID: 0}
+  jumpSound: {fileID: 0}
   velocidad: 3
   fuerzaSalto: 3
   limiteCaida: -3
@@ -2315,7 +2317,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 6, y: 100}
+  m_AnchoredPosition: {x: 9.5, y: 100.8}
   m_SizeDelta: {x: 332.264, y: 50}
   m_Pivot: {x: 0.6101053, y: 0.49999988}
 --- !u!114 &1832765688
