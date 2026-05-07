@@ -1,40 +1,62 @@
 using UnityEngine;
-using UnityEngine.SceneManagement; // Necesario para recargar niveles
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("UI Elements")]
-    public GameObject gameOverUI; // Arrastra tu GameOverPanel aquí desde el Inspector
-    
+    [Header("UI Panels")]
+    public GameObject gameOverUI;
+    public GameObject pauseMenuUI;
+
+    private bool isPaused = false;
     private bool isGameOver = false;
+
+    void Update()
+    {
+        // Detecta si presionamos Escape o P para pausar
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P))
+        {
+            if (!isGameOver) // No permitimos pausar si ya perdimos
+            {
+                if (isPaused) Resume();
+                else Pause();
+            }
+        }
+    }
+
+    public void Pause()
+    {
+        isPaused = true;
+        pauseMenuUI.SetActive(true);
+        // Esto detiene TODO el movimiento físico y animaciones que usen tiempo
+        Time.timeScale = 0f; 
+    }
+
+    public void Resume()
+    {
+        isPaused = false;
+        pauseMenuUI.SetActive(false);
+        // Esto devuelve el tiempo a la normalidad
+        Time.timeScale = 1f; 
+    }
 
     public void TriggerGameOver()
     {
-        // Evitamos que se ejecute varias veces si el jugador recibe daño continuo
-        if (isGameOver) return; 
-
+        if (isGameOver) return;
         isGameOver = true;
-        
-        // Activamos la pantalla de Game Over
         gameOverUI.SetActive(true);
-        
-        // Opcional: Pausar el juego para que no sigan ocurriendo cosas de fondo
-        // Time.timeScale = 0f; 
+        // Opcional: También detenemos el tiempo al perder
+        Time.timeScale = 0f; 
     }
 
     public void RestartLevel()
     {
-        // Si pausaste el juego, asegúrate de restaurar el tiempo antes de recargar
-        // Time.timeScale = 1f; 
-        
-        // Recarga la escena actual
+        Time.timeScale = 1f; // ¡Muy importante! Resetear el tiempo antes de cargar
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     public void LoadMainMenu()
     {
-        // Time.timeScale = 1f;
-        // Asumiendo que tu menú principal está en el índice 0 de tus Build Settings
+        Time.timeScale = 1f; // Resetear tiempo
         SceneManager.LoadScene(0); 
     }
 }
