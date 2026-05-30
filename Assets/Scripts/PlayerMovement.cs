@@ -7,6 +7,7 @@ public class PlayerMovement : MonoBehaviour
     public Animator catAnimator;
     public AudioSource audioSource;
     public AudioClip jumpSound;
+    public GatoEnergiaVida energiaVida;
 
     [Header("Configuración de Movimiento")]
     public float velocidad = 10f;
@@ -47,8 +48,14 @@ public class PlayerMovement : MonoBehaviour
 
         saltosParedRestantes = saltosParedMaximos;
 
-        // Buscar GameManager
         gameManager = FindObjectOfType<GameManager>();
+        if (energiaVida == null)
+            energiaVida = GetComponentInChildren<GatoEnergiaVida>(true);
+
+        if (energiaVida == null)
+            Debug.LogWarning(
+                "PlayerMovement: arrastra el Canvas (GatoEnergiaVida) al campo Energia Vida en Malibu.",
+                this);
 
         // Guardar posiciones del modelo
         if (catAnimator != null)
@@ -121,6 +128,9 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
+        if (energiaVida != null)
+            energiaVida.SetEnSuelo(enElSuelo);
+
         // =========================
         // BLOQUEO DE CONTROL
         // =========================
@@ -151,7 +161,8 @@ public class PlayerMovement : MonoBehaviour
             }
 
             // Wall Jump
-            else if (tocandoPared && saltosParedRestantes > 0)
+            else if (tocandoPared && saltosParedRestantes > 0
+                && (energiaVida == null || energiaVida.PuedeSaltarEnPared))
             {
                 Vector3 direccionRebote = new Vector3(
                     direccionMuroX * fuerzaEmpujeParedX,
@@ -164,6 +175,9 @@ public class PlayerMovement : MonoBehaviour
                 rb.AddForce(direccionRebote, ForceMode.Impulse);
 
                 saltosParedRestantes--;
+
+                if (energiaVida != null)
+                    energiaVida.RegistrarSaltoEnPared();
 
                 puedeDobleSalto = true;
 
@@ -273,11 +287,10 @@ public class PlayerMovement : MonoBehaviour
     public void Die()
     {
         if (gameManager != null)
-        {
-            gameManager.TriggerGameOver();
-        }
-
-        gameObject.SetActive(false);
+            gameManager.ReiniciarNivelAlMorir();
+        else
+            UnityEngine.SceneManagement.SceneManager.LoadScene(
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
     }
 
     // =========================

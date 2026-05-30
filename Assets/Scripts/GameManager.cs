@@ -50,7 +50,19 @@ public class GameManager : MonoBehaviour
 
     public void RestartLevel()
     {
-        Time.timeScale = 1f; // ¡Muy importante! Resetear el tiempo antes de cargar
+        ReiniciarNivel();
+    }
+
+    public void ReiniciarNivelAlMorir()
+    {
+        ReiniciarNivel();
+    }
+
+    void ReiniciarNivel()
+    {
+        isPaused = false;
+        isGameOver = false;
+        Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
