@@ -80,6 +80,8 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
+        if (Time.timeScale == 0f) return;
+
         // Detectar caída del mapa
         if (transform.position.y < limiteCaida)
         {
@@ -298,6 +300,8 @@ public class PlayerMovement : MonoBehaviour
     // =========================
     void FixedUpdate()
     {
+        if (Time.timeScale == 0f) return;
+
         enElSuelo = false;
         tocandoPared = false;
     }
